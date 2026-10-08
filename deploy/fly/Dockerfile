@@ -15,8 +15,8 @@ FROM node:22-alpine AS apibuild
 WORKDIR /app
 COPY api/package.json api/package-lock.json* ./
 RUN npm ci --omit=dev --omit=optional && npm cache clean --force
-COPY api/server.js api/push-messages.js api/verify-error.js api/password.js api/rate-limit.js api/passkeys-store.js api/device-link.js api/media.js ./
-COPY api/coach ./coach
+COPY api/ ./
+RUN rm -rf test scripts
 
 FROM alpine/git AS media
 RUN git clone --depth 1 https://github.com/hasaneyldrm/exercises-dataset /ds \
