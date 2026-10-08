@@ -1397,6 +1397,10 @@ const progressionStepOf = (c, mode, ex, unit) =>
 const progressionStepIsValid = (step, policy) =>
   policy === 'off' || (Number.isFinite(step) && step > 0)
 
+// Per-side rep fields (fork): what the person types is one side; what is stored is both.
+const sideView = (v, perSide) => (perSide && v != null ? v / 2 : v)
+const sideStore = (v, perSide) => (perSide && v != null ? Math.round(v) * 2 : v)
+
 function ProgressionFields({ ex, mode, c, setC, routine, unit, perSide }) {
   const options = POLICIES_FOR[mode] || ['off']
   if (options.length < 2) return null
@@ -1433,10 +1437,13 @@ function ProgressionFields({ ex, mode, c, setC, routine, unit, perSide }) {
       {active === 'double' && <>
         {/* The draft stays as typed: normalising on every keystroke turned "12" into 92 (the
             "1" was pulled above the lower bound first). Save and the engine normalise anyway. */}
-        <Stepper label={t('Reps from')} value={c.repsMin ?? range.repsMin} step={stride} decimal={false}
-          onChange={v => setC(x => ({ ...x, repsMin: v }))} />
-        <Stepper label={t('Reps up to')} value={c.reps ?? range.reps} step={stride} decimal={false}
-          onChange={v => setC(x => ({ ...x, reps: v }))} />
+        {/* Per-side work is typed per side (bragisnaer fork): the field shows half of the stored
+            total and writes back double, so "8" on a lunge means 8 left, 8 right. Storage,
+            progression and history keep the total, which is what every other reader expects. */}
+        <Stepper label={perSide ? t('Reps from (per side)') : t('Reps from')} value={sideView(c.repsMin ?? range.repsMin, perSide)} step={1} decimal={false}
+          onChange={v => setC(x => ({ ...x, repsMin: sideStore(v, perSide) }))} />
+        <Stepper label={perSide ? t('Reps up to (per side)') : t('Reps up to')} value={sideView(c.reps ?? range.reps, perSide)} step={1} decimal={false}
+          onChange={v => setC(x => ({ ...x, reps: sideStore(v, perSide) }))} />
       </>}
       {epleyEligible && <Stepper label={t('Deload 1RM (%)')} value={deloadPercent} step={5} min={50} max={95} decimal={false}
         onChange={v => setC(x => ({ ...x, deloadFactor: Number(v) / 100 }))} />}
@@ -1590,7 +1597,7 @@ function ExConfig({ ex, existing, onSave, onDelete, onReplace, close, routine, i
             rest-pause work set — so "Sets" has nothing left to mean and only invites a mismatch. */}
         {c.intensifier?.type !== 'restpause' && !pyramid &&
           <Stepper label={t('Sets')} value={c.sets} step={1} decimal={false} onChange={v => setC(x => ({ ...x, sets: v }))} />}
-        {!double && !pyramid && <Stepper label={t('Reps')} value={c.reps} step={perSide ? 2 : 1} decimal={false} onChange={v => setC(x => ({ ...x, reps: v }))} />}
+        {!double && !pyramid && <Stepper label={perSide ? t('Reps per side') : t('Reps')} value={sideView(c.reps, perSide)} step={1} decimal={false} onChange={v => setC(x => ({ ...x, reps: sideStore(v, perSide) }))} />}
         {/* On bodyweight work the weight stepper is the click #32 is about, so it is not here
             until there is a belt to describe — see the added-weight row below. */}
         {!bw && !pyramid && <Stepper label={t('Weight ({0})', st.unit)} value={c.weight} step={2.5} onChange={v => setC(x => ({ ...x, weight: v }))} />}
@@ -1681,7 +1688,7 @@ function ExConfig({ ex, existing, onSave, onDelete, onReplace, close, routine, i
           ? (perSide
             ? tn('{0} set becomes {1}: one on each side, {2}s held every time.', '{0} sets become {1}: one on each side, {2}s held every time.', c.sets || 0, (c.sets || 0) * 2, c.sec || 0)
             : t('For side planks, single-arm holds and the like. Trains each side on its own.'))
-          : (perSide ? t('You still log the total: {0} is {1} per side.', c.reps || 0, fmtNum(sideReps(c.reps))) : t('For lunges, single-arm rows and the like.'))}>
+          : (perSide ? t('{0} per side, {1} in total. Each side is logged on its own row.', fmtNum(sideReps(c.reps)), c.reps || 0) : t('For lunges, single-arm rows and the like.'))}>
         {/* Reps: turning it on rounds the target up to an even number, since half of an odd total
             is a rep one side does not get. Time: nothing to round — a hold's whole duration
             happens twice, so only the flag changes (buildWorkSets doubles the planned sets). */}
